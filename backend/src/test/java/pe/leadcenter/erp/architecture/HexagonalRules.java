@@ -21,9 +21,11 @@ final class HexagonalRules {
                 .resideInAnyPackage(
                         "org.springframework..",
                         "jakarta.persistence..",
+                        "org.hibernate..",
                         root + ".*.application..",
                         root + ".*.infrastructure..")
-                .as("domain must not depend on Spring, JPA, application or infrastructure")
+                .as(
+                        "domain must not depend on Spring, JPA, Hibernate, application or infrastructure")
                 .allowEmptyShould(true);
     }
 

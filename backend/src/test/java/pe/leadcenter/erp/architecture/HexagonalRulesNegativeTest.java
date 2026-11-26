@@ -24,6 +24,14 @@ class HexagonalRulesNegativeTest {
     }
 
     @Test
+    void domainDependingOnHibernateIsRejected() {
+        assertThatThrownBy(() -> HexagonalRules.domainIsPure(ROOT).check(FIXTURES))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("HibernateDomain")
+                .hasMessageContaining("org.hibernate");
+    }
+
+    @Test
     void applicationDependingOnInfrastructureIsRejected() {
         assertThatThrownBy(
                         () ->

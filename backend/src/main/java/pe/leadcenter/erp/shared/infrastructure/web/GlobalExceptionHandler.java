@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -14,6 +15,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -114,12 +116,27 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ProblemDetail handleUnexpected(Exception ex) {
+        ResponseStatus annotated =
+                AnnotatedElementUtils.findMergedAnnotation(ex.getClass(), ResponseStatus.class);
+        if (annotated != null) {
+            return annotatedStatusProblem(annotated);
+        }
         log.error("Unexpected error", ex);
         ProblemDetail problem =
                 ProblemDetail.forStatusAndDetail(
                         HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred.");
         problem.setTitle("Internal server error");
         problem.setType(INTERNAL);
+        return problem;
+    }
+
+    /** Honors {@code @ResponseStatus}; the exception message is never exposed. */
+    private static ProblemDetail annotatedStatusProblem(ResponseStatus annotated) {
+        HttpStatus status = annotated.code(); // alias of value(), merged by Spring
+        String detail =
+                annotated.reason().isEmpty() ? status.getReasonPhrase() : annotated.reason();
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
+        problem.setTitle(status.getReasonPhrase());
         return problem;
     }
 

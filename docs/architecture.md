@@ -120,6 +120,7 @@ All errors are `application/problem+json` produced by `GlobalExceptionHandler`:
 | `NotFoundException` | 404 | `urn:problem-type:not-found`, with `code` |
 | `BusinessRuleViolationException` | 422 | `urn:problem-type:business-rule-violation`, with `code` |
 | Other `DomainException` | 422 | `urn:problem-type:domain-error`, with `code` |
+| Exception annotated `@ResponseStatus` | annotated status | `detail` is the annotation `reason` (else the status phrase); the exception message is never exposed |
 | Unexpected | 500 | `urn:problem-type:internal-error`, generic detail, nothing internal leaked |
 
 Throw `DomainException` subclasses from the domain/application with a stable `code`

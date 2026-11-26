@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -23,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import pe.leadcenter.erp.shared.domain.BusinessRuleViolationException;
 import pe.leadcenter.erp.shared.domain.DomainException;
@@ -103,6 +105,25 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void responseStatusExceptionsKeepTheirAnnotatedStatus() throws Exception {
+        mvc.perform(get("/v1/probe/conflict"))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("Already exists"))
+                .andExpect(content().string(not(containsString("secret-conflict-detail"))));
+    }
+
+    @Test
+    void responseStatusWithoutReasonNeverLeaksTheMessage() throws Exception {
+        mvc.perform(get("/v1/probe/conflict-no-reason"))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(content().string(not(containsString("secret-conflict-detail"))));
+    }
+
+    @Test
     void accessDeniedIsNotSwallowedAsA500() throws Exception {
         mvc.perform(get("/v1/probe/denied")).andExpect(status().isForbidden());
     }
@@ -116,6 +137,20 @@ class GlobalExceptionHandlerTest {
                                 .content("not-json"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    }
+
+    @ResponseStatus(value = HttpStatus.CONFLICT, reason = "Already exists")
+    static class ConflictWithReason extends RuntimeException {
+        ConflictWithReason() {
+            super("secret-conflict-detail");
+        }
+    }
+
+    @ResponseStatus(HttpStatus.CONFLICT)
+    static class ConflictNoReason extends RuntimeException {
+        ConflictNoReason() {
+            super("secret-conflict-detail");
+        }
     }
 
     record ProbeRequest(@NotBlank String name, @Size(max = 3) String code) {}
@@ -151,6 +186,16 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/probe/boom")
         String boom() {
             throw new IllegalStateException("secret-internal-detail");
+        }
+
+        @GetMapping("/probe/conflict")
+        String conflict() {
+            throw new ConflictWithReason();
+        }
+
+        @GetMapping("/probe/conflict-no-reason")
+        String conflictNoReason() {
+            throw new ConflictNoReason();
         }
 
         @GetMapping("/probe/denied")
