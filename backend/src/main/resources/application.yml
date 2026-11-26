@@ -9,6 +9,14 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+      org:
+        hibernate:
+          envers:
+            audit_table_suffix: _aud
   flyway:
     enabled: true
     locations: classpath:db/migration

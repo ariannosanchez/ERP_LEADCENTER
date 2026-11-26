@@ -4,7 +4,7 @@ Internal ERP for LeadCenter: leads, clients, sales, users and permissions.
 
 | Part | Path | Stack |
 |---|---|---|
-| API | `backend/` | Java 25, Spring Boot 4.1, Spring Modulith, PostgreSQL, Flyway |
+| API | `backend/` | Java 25, Spring Boot 4.1, Spring Modulith, PostgreSQL, Flyway (Maven wrapper) |
 | Web | `frontend/` | React, Vite, TypeScript |
 | Local services | `compose.yaml` | PostgreSQL 17 |
 
@@ -18,7 +18,7 @@ Internal ERP for LeadCenter: leads, clients, sales, users and permissions.
 
 ```bash
 docker compose up -d            # PostgreSQL on localhost:5432 (erp/erp)
-cd backend && ./gradlew bootRun # API on http://localhost:8080/api
+cd backend && ./mvnw spring-boot:run # API on http://localhost:8080/api
 cd frontend && pnpm install && pnpm dev   # Web on http://localhost:5173, proxies /api to the API
 ```
 
@@ -39,7 +39,8 @@ The API reads its database settings from the environment:
 ## Tests
 
 ```bash
-cd backend && ./gradlew test    # unit, module-boundary and Testcontainers tests (Docker required)
+cd backend && ./mvnw -B spotless:check verify  # format check + unit, architecture and Testcontainers tests (Docker required)
+cd backend && ./mvnw spotless:apply            # auto-format Java sources
 cd frontend && pnpm build       # type check and production build
 ```
 
@@ -48,4 +49,5 @@ cd frontend && pnpm build       # type check and production build
 The API is a modular monolith: each business domain is a top-level package under
 `pe.leadcenter.erp` treated as a Spring Modulith module. `ModularityTests` fails the build
 when a module uses another module's internals. Database changes go only through versioned
-Flyway migrations in `backend/src/main/resources/db/migration`.
+Flyway migrations in `backend/src/main/resources/db/migration`. See [docs/architecture.md](docs/architecture.md)
+for the module layout, conventions and tooling.
