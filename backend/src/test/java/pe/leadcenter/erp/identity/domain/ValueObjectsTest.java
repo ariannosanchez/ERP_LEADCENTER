@@ -45,4 +45,15 @@ class ValueObjectsTest {
         assertThatThrownBy(() -> new PasswordHash(null))
                 .isInstanceOf(BusinessRuleViolationException.class);
     }
+
+    @Test
+    void emailLengthBoundaryIs254() {
+        String at254 = "a".repeat(249) + "@b.pe";
+        assertThat(at254).hasSize(254);
+        assertThat(new Email(at254).value()).isEqualTo(at254);
+        assertThatThrownBy(() -> new Email("a" + at254))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .extracting("code")
+                .isEqualTo("user.email_invalid");
+    }
 }

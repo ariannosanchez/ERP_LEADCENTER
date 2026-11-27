@@ -63,4 +63,36 @@ class UserTest {
         user.removeRole(role);
         assertThat(user.roleIds()).isEmpty();
     }
+
+    private static void assertViolation(Runnable action, String code) {
+        assertThatThrownBy(action::run)
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .extracting("code")
+                .isEqualTo(code);
+    }
+
+    @Test
+    void assignAndRemoveRoleRejectNullLeavingStateUsable() {
+        User user = user();
+        assertViolation(() -> user.assignRole(null), "user.role_required");
+        assertViolation(() -> user.removeRole(null), "user.role_required");
+        assertThat(user.roleIds()).isEmpty();
+        UUID role = UUID.randomUUID();
+        user.assignRole(role);
+        assertThat(user.roleIds()).containsExactly(role);
+    }
+
+    @Test
+    void nullEmailAndPasswordHashAreRejectedAndStateKept() {
+        PasswordHash hash = new PasswordHash("h");
+        assertViolation(() -> User.register(null, "Ana", hash), "user.email_required");
+        assertViolation(
+                () -> User.register(new Email("a@b.pe"), "Ana", null),
+                "user.password_hash_required");
+        User user = user();
+        assertViolation(() -> user.changeEmail(null), "user.email_required");
+        assertViolation(() -> user.changePasswordHash(null), "user.password_hash_required");
+        assertThat(user.email().value()).isEqualTo("a@b.pe");
+        assertThat(user.passwordHash().value()).isEqualTo("h1");
+    }
 }

@@ -21,8 +21,25 @@ public final class AdministrationGuard {
     private AdministrationGuard() {}
 
     public static void verify(Collection<User> users, Collection<Role> roles) {
+        if (users == null
+                || roles == null
+                || users.stream().anyMatch(Objects::isNull)
+                || roles.stream().anyMatch(Objects::isNull)) {
+            throw new BusinessRuleViolationException(
+                    "identity.guard_input_required", "Users and roles must be non-null");
+        }
+        // Duplicate role ids are rejected (not merged): the caller supplied an ambiguous state.
         Map<UUID, Role> byId =
-                roles.stream().collect(Collectors.toMap(Role::id, Function.identity()));
+                roles.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Role::id,
+                                        Function.identity(),
+                                        (a, b) -> {
+                                            throw new BusinessRuleViolationException(
+                                                    "identity.role_duplicated",
+                                                    "Duplicate role id: " + a.id());
+                                        }));
         boolean hasAdministrator =
                 users.stream().filter(User::active).anyMatch(user -> administers(user, byId));
         if (!hasAdministrator) {

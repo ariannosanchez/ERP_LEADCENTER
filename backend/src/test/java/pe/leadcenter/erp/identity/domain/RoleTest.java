@@ -3,6 +3,8 @@ package pe.leadcenter.erp.identity.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import pe.leadcenter.erp.identity.Permission;
@@ -85,5 +87,54 @@ class RoleTest {
         assertThat(sales.permissions())
                 .containsExactlyInAnyOrder(
                         Permission.LEADS_VER_PROPIOS, Permission.LEADS_GESTIONAR);
+    }
+
+    private static Set<Permission> withNull() {
+        Set<Permission> set = new HashSet<>(Arrays.asList(Permission.values()));
+        set.add(null);
+        return set;
+    }
+
+    @Test
+    void failedReplaceLeavesAdministratorWithEveryPermission() {
+        Role admin = Role.administrator();
+        assertViolation(() -> admin.replacePermissions(withNull()), "role.permissions_invalid");
+        assertViolation(() -> admin.replacePermissions(null), "role.permissions_invalid");
+        assertThat(admin.permissions()).containsExactlyInAnyOrder(Permission.values());
+    }
+
+    @Test
+    void failedReplaceLeavesCustomRoleUnchanged() {
+        Role role = Role.create("A", null, Set.of(Permission.ROLES_VER));
+        assertViolation(() -> role.replacePermissions(null), "role.permissions_invalid");
+        assertViolation(() -> role.replacePermissions(withNull()), "role.permissions_invalid");
+        assertThat(role.permissions()).containsExactly(Permission.ROLES_VER);
+    }
+
+    @Test
+    void duplicateGrantAndRevokeArgumentsAreIdempotent() {
+        Role role = Role.create("A", null, Set.of());
+        role.grant(Permission.ROLES_VER, Permission.ROLES_VER);
+        assertThat(role.permissions()).containsExactly(Permission.ROLES_VER);
+        role.revoke(Permission.ROLES_VER, Permission.ROLES_VER);
+        assertThat(role.permissions()).isEmpty();
+    }
+
+    @Test
+    void nullGrantAndRevokeAreRejectedWithoutMutation() {
+        Role role = Role.create("A", null, Set.of(Permission.ROLES_VER));
+        assertViolation(() -> role.grant((Permission[]) null), "role.permissions_invalid");
+        assertViolation(
+                () -> role.grant(Permission.LEADS_ASIGNAR, null), "role.permissions_invalid");
+        assertViolation(() -> role.revoke((Permission[]) null), "role.permissions_invalid");
+        assertViolation(() -> role.revoke(Permission.ROLES_VER, null), "role.permissions_invalid");
+        assertThat(role.permissions()).containsExactly(Permission.ROLES_VER);
+    }
+
+    @Test
+    void createRejectsNullPermissionsAndAllowsNullDescription() {
+        assertViolation(() -> Role.create("A", null, null), "role.permissions_invalid");
+        assertViolation(() -> Role.create("A", null, withNull()), "role.permissions_invalid");
+        assertThat(Role.create("A", null, Set.of()).description()).isNull();
     }
 }

@@ -20,9 +20,9 @@ public final class User {
 
     private User(Email email, String fullName, PasswordHash passwordHash) {
         this.id = UuidV7.generate();
-        this.email = email;
+        this.email = requireEmail(email);
         this.fullName = validName(fullName);
-        this.passwordHash = passwordHash;
+        this.passwordHash = requireHash(passwordHash);
         this.active = true;
     }
 
@@ -59,11 +59,11 @@ public final class User {
     }
 
     public void changeEmail(Email newEmail) {
-        this.email = newEmail;
+        this.email = requireEmail(newEmail);
     }
 
     public void changePasswordHash(PasswordHash newHash) {
-        this.passwordHash = newHash;
+        this.passwordHash = requireHash(newHash);
     }
 
     public void activate() {
@@ -75,11 +75,30 @@ public final class User {
     }
 
     public void assignRole(UUID roleId) {
-        roleIds.add(roleId);
+        roleIds.add(requireRole(roleId));
     }
 
     public void removeRole(UUID roleId) {
-        roleIds.remove(roleId);
+        roleIds.remove(requireRole(roleId));
+    }
+
+    private static Email requireEmail(Email email) {
+        return required(email, "user.email_required", "Email is required");
+    }
+
+    private static PasswordHash requireHash(PasswordHash hash) {
+        return required(hash, "user.password_hash_required", "Password hash is required");
+    }
+
+    private static UUID requireRole(UUID roleId) {
+        return required(roleId, "user.role_required", "Role id is required");
+    }
+
+    private static <T> T required(T value, String code, String message) {
+        if (value == null) {
+            throw new BusinessRuleViolationException(code, message);
+        }
+        return value;
     }
 
     private static String validName(String raw) {

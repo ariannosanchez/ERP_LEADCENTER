@@ -3,6 +3,7 @@ package pe.leadcenter.erp.identity.domain;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -79,5 +80,71 @@ class AdministrationGuardTest {
         user.assignRole(users.id());
         user.assignRole(roles.id());
         assertThatCode(() -> verify(List.of(user), users, roles)).doesNotThrowAnyException();
+    }
+
+    private static void assertViolation(Runnable action, String code) {
+        assertThatThrownBy(action::run)
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .extracting("code")
+                .isEqualTo(code);
+    }
+
+    private User holding(Role... roles) {
+        User user = User.register(new Email("x@b.pe"), "X", new PasswordHash("h"));
+        for (Role role : roles) {
+            user.assignRole(role.id());
+        }
+        return user;
+    }
+
+    @Test
+    void rejectsUserHoldingOnlyRolesGestionar() {
+        Role only = Role.create("R", null, Set.of(Permission.ROLES_GESTIONAR));
+        assertRejected(List.of(holding(only)), only);
+    }
+
+    @Test
+    void rejectsWhenAdministratorRoleIsMissingFromSuppliedRoles() {
+        Role other = Role.create("O", null, Set.of());
+        assertRejected(List.of(first), other);
+    }
+
+    @Test
+    void rejectsEmptyStateAndInactiveOnlyAdministrators() {
+        assertRejected(List.of(), admin);
+        assertRejected(List.of(first), new Role[0]);
+        first.deactivate();
+        second.deactivate();
+        assertRejected(List.of(first, second), admin);
+    }
+
+    @Test
+    void rejectsAdministrationPermissionsSplitAcrossUsers() {
+        Role users = Role.create("U", null, Set.of(Permission.USUARIOS_GESTIONAR));
+        Role roles = Role.create("R", null, Set.of(Permission.ROLES_GESTIONAR));
+        assertRejected(List.of(holding(users), holding(roles)), users, roles);
+    }
+
+    @Test
+    void rejectsDuplicateRoleIdsWithDomainException() {
+        assertViolation(
+                () -> AdministrationGuard.verify(List.of(first), List.of(admin, admin)),
+                "identity.role_duplicated");
+    }
+
+    @Test
+    void rejectsNullCollectionsAndElements() {
+        assertViolation(
+                () -> AdministrationGuard.verify(null, List.of(admin)),
+                "identity.guard_input_required");
+        assertViolation(
+                () -> AdministrationGuard.verify(List.of(first), null),
+                "identity.guard_input_required");
+        assertViolation(
+                () -> AdministrationGuard.verify(Arrays.asList(first, null), List.of(admin)),
+                "identity.guard_input_required");
+        assertViolation(
+                () -> AdministrationGuard.verify(List.of(first), Arrays.asList(admin, null)),
+                "identity.guard_input_required");
     }
 }

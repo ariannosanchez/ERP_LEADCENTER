@@ -1,7 +1,9 @@
 package pe.leadcenter.erp.identity.domain;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import pe.leadcenter.erp.identity.Permission;
@@ -30,10 +32,10 @@ public final class Role {
             Collection<Permission> perms) {
         this.id = id;
         this.name = validName(name);
-        this.description = description;
+        this.description = description; // null is allowed and stored as-is
         this.system = system;
         this.permissions = EnumSet.noneOf(Permission.class);
-        this.permissions.addAll(perms);
+        this.permissions.addAll(validPermissions(perms));
     }
 
     public static Role create(String name, String description, Set<Permission> permissions) {
@@ -90,22 +92,34 @@ public final class Role {
     }
 
     public void grant(Permission... granted) {
-        permissions.addAll(Set.of(granted));
+        permissions.addAll(validPermissions(granted == null ? null : Arrays.asList(granted)));
     }
 
     public void revoke(Permission... revoked) {
         if (system) {
             throw protectedRole("Permissions of a system role cannot be revoked");
         }
-        Set.of(revoked).forEach(permissions::remove);
+        permissions.removeAll(validPermissions(revoked == null ? null : Arrays.asList(revoked)));
     }
 
     public void replacePermissions(Set<Permission> newPermissions) {
-        if (system && !newPermissions.containsAll(EnumSet.allOf(Permission.class))) {
+        Set<Permission> valid = validPermissions(newPermissions);
+        if (system && !valid.containsAll(EnumSet.allOf(Permission.class))) {
             throw protectedRole("Permissions of a system role cannot be revoked");
         }
         permissions.clear();
-        permissions.addAll(newPermissions);
+        permissions.addAll(valid);
+    }
+
+    /** Validates before any mutation: null collection or null element is a domain error. */
+    private static Set<Permission> validPermissions(Collection<Permission> source) {
+        if (source == null || source.stream().anyMatch(Objects::isNull)) {
+            throw new BusinessRuleViolationException(
+                    "role.permissions_invalid", "Permissions must be non-null");
+        }
+        Set<Permission> copy = EnumSet.noneOf(Permission.class);
+        copy.addAll(source);
+        return copy;
     }
 
     private static BusinessRuleViolationException protectedRole(String message) {
