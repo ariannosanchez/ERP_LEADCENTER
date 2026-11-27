@@ -5,7 +5,7 @@ Internal ERP for LeadCenter: leads, clients, sales, users and permissions.
 | Part | Path | Stack |
 |---|---|---|
 | API | `backend/` | Java 25, Spring Boot 4.1, Spring Modulith, PostgreSQL, Flyway (Maven wrapper) |
-| Web | `frontend/` | React, Vite, TypeScript |
+| Web | `frontend/` | React 19, Vite, TypeScript, Tailwind, shadcn/ui, TanStack Query |
 | Local services | `compose.yaml` | PostgreSQL 17 |
 
 ## Requirements
@@ -41,7 +41,10 @@ The API reads its database settings from the environment:
 ```bash
 cd backend && ./mvnw -B spotless:check verify  # format check + unit, architecture and Testcontainers tests (Docker required)
 cd backend && ./mvnw spotless:apply            # auto-format Java sources
-cd frontend && pnpm build       # type check and production build
+cd frontend && pnpm lint && pnpm format:check && pnpm test --run && pnpm build  # lint, format, unit tests, type check + build
+cd frontend && pnpm format      # auto-format with Prettier
+cd frontend && pnpm api:generate # regenerate the API client from frontend/openapi/erp-api.json
+cd backend && ./mvnw -B -Dtest=OpenApiExportIT -Dopenapi.export.path=../frontend/openapi/erp-api.json test  # refresh the OpenAPI snapshot, then api:generate
 ```
 
 ## Architecture
@@ -50,4 +53,5 @@ The API is a modular monolith: each business domain is a top-level package under
 `pe.leadcenter.erp` treated as a Spring Modulith module. `ModularityTests` fails the build
 when a module uses another module's internals. Database changes go only through versioned
 Flyway migrations in `backend/src/main/resources/db/migration`. See [docs/architecture.md](docs/architecture.md)
-for the module layout, conventions and tooling.
+for the module layout, conventions and tooling. The web client structure, dependency rules and
+API sync flow are in [docs/frontend-architecture.md](docs/frontend-architecture.md).
