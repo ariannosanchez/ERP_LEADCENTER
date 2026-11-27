@@ -30,6 +30,9 @@ public final class Role {
             String description,
             boolean system,
             Collection<Permission> perms) {
+        if (id == null) {
+            throw new BusinessRuleViolationException("role.id_required", "Role id is required");
+        }
         this.id = id;
         this.name = validName(name);
         this.description = description; // null is allowed and stored as-is
@@ -40,6 +43,16 @@ public final class Role {
 
     public static Role create(String name, String description, Set<Permission> permissions) {
         return new Role(UuidV7.generate(), name, description, false, permissions);
+    }
+
+    /** Rebuilds a stored role: validates invariants, no creation side effects. */
+    public static Role restore(
+            UUID id, String name, String description, boolean system, Set<Permission> permissions) {
+        Role role = new Role(id, name, description, system, permissions);
+        if (system && !role.permissions.containsAll(EnumSet.allOf(Permission.class))) {
+            throw protectedRole("A system role must hold every permission");
+        }
+        return role;
     }
 
     public static Role administrator() {

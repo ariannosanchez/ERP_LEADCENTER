@@ -18,8 +18,8 @@ public final class User {
     private boolean active;
     private final Set<UUID> roleIds = new HashSet<>();
 
-    private User(Email email, String fullName, PasswordHash passwordHash) {
-        this.id = UuidV7.generate();
+    private User(UUID id, Email email, String fullName, PasswordHash passwordHash) {
+        this.id = required(id, "user.id_required", "User id is required");
         this.email = requireEmail(email);
         this.fullName = validName(fullName);
         this.passwordHash = requireHash(passwordHash);
@@ -31,7 +31,21 @@ public final class User {
     }
 
     public static User register(Email email, String fullName, PasswordHash passwordHash) {
-        return new User(email, fullName, passwordHash);
+        return new User(UuidV7.generate(), email, fullName, passwordHash);
+    }
+
+    /** Rebuilds a stored user: same invariants as registration, no creation side effects. */
+    public static User restore(
+            UUID id,
+            Email email,
+            String fullName,
+            PasswordHash passwordHash,
+            boolean active,
+            Set<UUID> roleIds) {
+        User user = new User(id, email, fullName, passwordHash);
+        user.active = active;
+        required(roleIds, "user.role_required", "Role ids are required").forEach(user::assignRole);
+        return user;
     }
 
     public Email email() {
