@@ -24,6 +24,14 @@ spring:
     jdbc:
       initialize-schema: never
 
+erp:
+  bootstrap:
+    admin:
+      # Read only when no active administrator exists. No default credentials.
+      email: ${ERP_BOOTSTRAP_ADMIN_EMAIL:}
+      password: ${ERP_BOOTSTRAP_ADMIN_PASSWORD:}
+      full-name: ${ERP_BOOTSTRAP_ADMIN_FULL_NAME:Administrador}
+
 server:
   port: ${SERVER_PORT:8080}
   servlet:

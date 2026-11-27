@@ -105,6 +105,15 @@ class LeadEntity extends SoftDeletableAuditedEntity {
   `role_permissions_code_check` constraint and grants the new code to the Administrador row
   (`00000000-0000-7000-8000-000000000001`). Otherwise loading the Administrador fails with
   `role.system_protected`, because a system role must hold every permission.
+- **Initial administrator**: at start `BootstrapAdministratorRunner` (identity `infrastructure/in`) runs
+  `BootstrapAdministratorHandler` in one transaction. If an active user already holds `usuarios.gestionar`
+  and `roles.gestionar` (`AdministrationGuard`), nothing happens. Otherwise, with
+  `ERP_BOOTSTRAP_ADMIN_EMAIL` and `ERP_BOOTSTRAP_ADMIN_PASSWORD` (>= 12 characters, <= 72 bytes) set, it
+  registers an active user with the Administrador role (`ERP_BOOTSTRAP_ADMIN_FULL_NAME`, default
+  "Administrador"). Missing variables only log a warning; invalid values or an email already used by a
+  non-administrator abort startup. The variables are read only when no administrator exists: remove
+  them after the first start. The raw password is never logged; hashing goes through the `PasswordHasher`
+  port (Spring Security delegating encoder, bcrypt; the `PasswordEncoder` bean is shared with login).
 
 ## Time
 

@@ -35,6 +35,14 @@ The API reads its database settings from the environment:
 | `DB_USERNAME` | `erp` |
 | `DB_PASSWORD` | `erp` |
 | `SERVER_PORT` | `8080` |
+| `ERP_BOOTSTRAP_ADMIN_EMAIL` | none |
+| `ERP_BOOTSTRAP_ADMIN_PASSWORD` | none (at least 12 characters) |
+| `ERP_BOOTSTRAP_ADMIN_FULL_NAME` | `Administrador` |
+
+The `ERP_BOOTSTRAP_ADMIN_*` variables create the initial Administrador account at start. They are read
+only when no active administrator exists: set them for the first start, then remove them. Without
+them (and with no administrator) the API starts and logs a warning. An invalid value, or an email
+that already belongs to a non-administrator, aborts startup with an explanatory message.
 
 ## Tests
 
