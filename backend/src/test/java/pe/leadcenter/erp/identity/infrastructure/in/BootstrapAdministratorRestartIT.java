@@ -20,11 +20,13 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.NestedExceptionUtils;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 import pe.leadcenter.erp.ErpApiApplication;
+import pe.leadcenter.erp.shared.domain.BusinessRuleViolationException;
 
 /**
  * Restarts the whole application several times on ONE Testcontainers database.
@@ -76,7 +78,13 @@ class BootstrapAdministratorRestartIT {
             execute("update users set active = false");
             List<String> deactivated = snapshot();
             assertThat(deactivated).isNotEqualTo(afterCreate).hasSize(1);
-            assertThatThrownBy(() -> start(EMAIL, OTHER_PASSWORD)).isInstanceOf(Exception.class);
+            assertThatThrownBy(() -> start(EMAIL, OTHER_PASSWORD))
+                    .satisfies(
+                            failure ->
+                                    assertThat(NestedExceptionUtils.getMostSpecificCause(failure))
+                                            .isInstanceOf(BusinessRuleViolationException.class)
+                                            .extracting("code")
+                                            .isEqualTo("bootstrap.admin_email_conflict"));
             assertThat(snapshot()).isEqualTo(deactivated);
         } finally {
             System.setOut(originalOut);
