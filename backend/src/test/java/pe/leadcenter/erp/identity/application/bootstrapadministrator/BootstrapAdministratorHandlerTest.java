@@ -34,6 +34,7 @@ class BootstrapAdministratorHandlerTest {
     private static final String EMAIL = "admin@leadcenter.pe";
 
     private final FakeUsers users = new FakeUsers();
+    private final FakeRoles roles = new FakeRoles();
     private final PasswordHasher hasher =
             new PasswordHasher() {
                 @Override
@@ -47,7 +48,7 @@ class BootstrapAdministratorHandlerTest {
                 }
             };
     private final BootstrapAdministratorHandler handler =
-            new BootstrapAdministratorHandler(users, new FakeRoles(), hasher);
+            new BootstrapAdministratorHandler(users, roles, hasher);
     private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
     private final Logger logger =
             (Logger) LoggerFactory.getLogger(BootstrapAdministratorHandler.class);
@@ -189,6 +190,84 @@ class BootstrapAdministratorHandlerTest {
     }
 
     @Test
+    void acceptsAPasswordOfExactly72Bytes() {
+        handler.execute(command(EMAIL, "a".repeat(72)));
+
+        assertThat(users.all).hasSize(1);
+    }
+
+    @Test
+    void rejectsAPasswordOf73Bytes() {
+        assertThatThrownBy(() -> handler.execute(command(EMAIL, "a".repeat(73))))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessageContaining("ERP_BOOTSTRAP_ADMIN_PASSWORD");
+        assertThat(users.all).isEmpty();
+    }
+
+    @Test
+    void invalidPasswordMessageNeverContainsTheRawPassword() {
+        String tooLong = "p".repeat(73);
+        String tooShort = "short-pw";
+
+        for (String bad : List.of(tooLong, tooShort)) {
+            assertThatThrownBy(() -> handler.execute(command(EMAIL, bad)))
+                    .isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessageNotContaining(bad);
+        }
+        assertThat(allLogs()).doesNotContain(tooLong).doesNotContain(tooShort);
+    }
+
+    @Test
+    void countsCodePointsNotUtf16UnitsForTheMinimumLength() {
+        // An emoji is one code point but two UTF-16 units: 6 of them are 12 units, 6 code points.
+        String emoji = new String(Character.toChars(0x1F600));
+
+        assertThatThrownBy(() -> handler.execute(command(EMAIL, emoji.repeat(6))))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessageContaining("ERP_BOOTSTRAP_ADMIN_PASSWORD");
+        assertThat(users.all).isEmpty();
+
+        handler.execute(command(EMAIL, emoji.repeat(12)));
+
+        assertThat(users.all).hasSize(1);
+    }
+
+    @Test
+    void commandToStringMasksThePassword() {
+        String text = command(EMAIL, PASSWORD).toString();
+
+        assertThat(text).doesNotContain(PASSWORD).contains("****").contains(EMAIL);
+    }
+
+    @Test
+    void emailConflictIsCaseInsensitiveAndLeavesTheExistingUserUnchanged() {
+        User sales = users.save(userWith("ADMIN@LeadCenter.PE", Role.SALES_ID, true));
+
+        assertThatThrownBy(() -> handler.execute(command(EMAIL, PASSWORD)))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessageContaining("resolve");
+        assertThat(users.all).containsExactly(sales);
+        assertThat(sales.roleIds()).containsExactly(Role.SALES_ID);
+        assertThat(sales.active()).isTrue();
+        assertThat(sales.passwordHash()).isEqualTo(new PasswordHash("h"));
+    }
+
+    @Test
+    void aCustomRoleHoldingBothAdministrationPermissionsCountsAsAdministrator() {
+        Role managers =
+                roles.save(
+                        Role.create(
+                                "Gestores",
+                                null,
+                                Set.of(Permission.USUARIOS_GESTIONAR, Permission.ROLES_GESTIONAR)));
+        users.save(userWith("manager@leadcenter.pe", managers.id(), true));
+
+        handler.execute(command(EMAIL, PASSWORD));
+
+        assertThat(users.all).hasSize(1);
+    }
+
+    @Test
     void usesTheDefaultNameWhenNoneIsGiven() {
         handler.execute(new BootstrapAdministratorCommand(EMAIL, PASSWORD, null));
 
@@ -228,19 +307,22 @@ class BootstrapAdministratorHandlerTest {
 
     static final class FakeRoles implements RoleRepository {
         private final List<Role> seeded =
-                List.of(
-                        Role.restore(
-                                Role.ADMINISTRATOR_ID,
-                                "Administrador",
-                                null,
-                                true,
-                                EnumSet.allOf(Permission.class)),
-                        Role.restore(
-                                Role.SALES_ID,
-                                "Comercial / Ventas",
-                                null,
-                                false,
-                                Set.of(Permission.LEADS_VER_PROPIOS, Permission.LEADS_GESTIONAR)));
+                new ArrayList<>(
+                        List.of(
+                                Role.restore(
+                                        Role.ADMINISTRATOR_ID,
+                                        "Administrador",
+                                        null,
+                                        true,
+                                        EnumSet.allOf(Permission.class)),
+                                Role.restore(
+                                        Role.SALES_ID,
+                                        "Comercial / Ventas",
+                                        null,
+                                        false,
+                                        Set.of(
+                                                Permission.LEADS_VER_PROPIOS,
+                                                Permission.LEADS_GESTIONAR))));
 
         @Override
         public Optional<Role> findById(UUID id) {
@@ -259,6 +341,8 @@ class BootstrapAdministratorHandlerTest {
 
         @Override
         public Role save(Role role) {
+            seeded.removeIf(r -> r.id().equals(role.id()));
+            seeded.add(role);
             return role;
         }
     }

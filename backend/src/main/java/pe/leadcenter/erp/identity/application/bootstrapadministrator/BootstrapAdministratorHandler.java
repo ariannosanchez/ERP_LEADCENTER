@@ -102,7 +102,7 @@ public class BootstrapAdministratorHandler {
 
     private static String validPassword(String raw) {
         if (raw.isBlank()
-                || raw.length() < MIN_PASSWORD_LENGTH
+                || raw.codePointCount(0, raw.length()) < MIN_PASSWORD_LENGTH
                 || raw.getBytes(StandardCharsets.UTF_8).length > MAX_PASSWORD_BYTES) {
             throw new BusinessRuleViolationException(
                     "bootstrap.admin_password_invalid",

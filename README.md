@@ -36,13 +36,19 @@ The API reads its database settings from the environment:
 | `DB_PASSWORD` | `erp` |
 | `SERVER_PORT` | `8080` |
 | `ERP_BOOTSTRAP_ADMIN_EMAIL` | none |
-| `ERP_BOOTSTRAP_ADMIN_PASSWORD` | none (at least 12 characters) |
+| `ERP_BOOTSTRAP_ADMIN_PASSWORD` | none (12 characters minimum, counted as Unicode code points; 72 bytes maximum in UTF-8) |
 | `ERP_BOOTSTRAP_ADMIN_FULL_NAME` | `Administrador` |
 
 The `ERP_BOOTSTRAP_ADMIN_*` variables create the initial Administrador account at start. They are read
-only when no active administrator exists: set them for the first start, then remove them. Without
-them (and with no administrator) the API starts and logs a warning. An invalid value, or an email
-that already belongs to a non-administrator, aborts startup with an explanatory message.
+only when no active administrator exists. Without them (and with no administrator) the API starts and logs
+a warning. The password must have at least 12 characters (Unicode code points, so an emoji counts as one)
+and at most 72 bytes in UTF-8. An invalid value aborts startup with an explanatory message, and so does an
+email that already belongs to any existing non-administrator user or to a deactivated administrator
+(resolve it manually or use another email).
+
+Remove the variables after the first start: whenever no active administrator exists (for example after the
+only one is deactivated), leftover variables re-create an administrator on the next restart. That is the
+recovery path, but it also means stale credentials in the environment keep working as a way back in.
 
 ## Tests
 

@@ -108,11 +108,12 @@ class LeadEntity extends SoftDeletableAuditedEntity {
 - **Initial administrator**: at start `BootstrapAdministratorRunner` (identity `infrastructure/in`) runs
   `BootstrapAdministratorHandler` in one transaction. If an active user already holds `usuarios.gestionar`
   and `roles.gestionar` (`AdministrationGuard`), nothing happens. Otherwise, with
-  `ERP_BOOTSTRAP_ADMIN_EMAIL` and `ERP_BOOTSTRAP_ADMIN_PASSWORD` (>= 12 characters, <= 72 bytes) set, it
+  `ERP_BOOTSTRAP_ADMIN_EMAIL` and `ERP_BOOTSTRAP_ADMIN_PASSWORD` (>= 12 characters counted as Unicode code points, <= 72 bytes in UTF-8) set, it
   registers an active user with the Administrador role (`ERP_BOOTSTRAP_ADMIN_FULL_NAME`, default
-  "Administrador"). Missing variables only log a warning; invalid values or an email already used by a
-  non-administrator abort startup. The variables are read only when no administrator exists: remove
-  them after the first start. The raw password is never logged; hashing goes through the `PasswordHasher`
+  "Administrador"). Missing variables only log a warning; invalid values, or an email already used by any
+  non-administrator or by a deactivated administrator, abort startup. The variables are read only when
+  no active administrator exists, so leftover variables re-create an administrator on restart whenever
+  none is active (recovery path): remove them after the first start. The raw password is never logged; hashing goes through the `PasswordHasher`
   port (Spring Security delegating encoder, bcrypt; the `PasswordEncoder` bean is shared with login).
 
 ## Time
