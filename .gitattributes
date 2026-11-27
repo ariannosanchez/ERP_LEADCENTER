@@ -1,0 +1,7 @@
+# Keep LF in the working tree on every OS so Prettier, Spotless and shell scripts agree.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.jar binary
+*.png binary
+*.ico binary

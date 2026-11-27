@@ -1,8 +1,81 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
+  "plugins": ["react", "typescript", "oxc", "import"],
+  "ignorePatterns": ["dist", "src/shared/api/generated"],
   "rules": {
     "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+    "react/only-export-components": [
+      "warn",
+      {
+        "allowConstantExport": true
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/shared/ui/**"],
+      "rules": {
+        "react/only-export-components": "off"
+      }
+    },
+    {
+      "files": ["src/shared/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "@/app",
+                  "@/app/**",
+                  "**/app/**",
+                  "@/features",
+                  "@/features/**",
+                  "**/features/**"
+                ],
+                "message": "Dependencies are one-way: app -> features -> shared. shared must not import app or features."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/features/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@/app", "@/app/**", "**/app/**"],
+                "message": "Dependencies are one-way: app -> features -> shared. features must not import app."
+              },
+              {
+                "group": ["@/features/*/**", "**/features/*/**"],
+                "message": "No cross-feature internal imports: import another feature only through its public entry (@/features/<name>)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/app/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@/features/*/**", "**/features/*/**"],
+                "message": "app may only use a feature through its public entry (@/features/<name>)."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }
