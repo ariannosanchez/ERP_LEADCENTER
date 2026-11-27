@@ -50,6 +50,13 @@ describe('http', () => {
     await expect(http('/v1/things', { method: 'DELETE' })).resolves.toBeUndefined()
   })
 
+  it('returns undefined for a successful JSON response with an empty body', async () => {
+    fetchMock.mockResolvedValue(
+      new Response('', { status: 201, headers: { 'Content-Type': 'application/json' } }),
+    )
+    await expect(http('/v1/things', { method: 'POST' })).resolves.toBeUndefined()
+  })
+
   it('parses a problem+json error into ApiError', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(

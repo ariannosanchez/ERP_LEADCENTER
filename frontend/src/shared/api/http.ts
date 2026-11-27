@@ -93,9 +93,10 @@ async function toApiError(response: Response): Promise<ApiError> {
 
 async function parseBody(response: Response): Promise<unknown> {
   if (response.status === 204 || response.status === 205) return undefined
-  if (isJson(response)) return response.json()
+  // Read the text first: a JSON content type with an empty body (e.g. 201 without content) is valid.
   const text = await response.text()
-  return text === '' ? undefined : text
+  if (text === '') return undefined
+  return isJson(response) ? (JSON.parse(text) as unknown) : text
 }
 
 async function request(path: string, init: RequestInit = {}): Promise<Response> {
