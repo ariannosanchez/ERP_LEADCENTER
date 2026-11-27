@@ -55,3 +55,10 @@ when a module uses another module's internals. Database changes go only through 
 Flyway migrations in `backend/src/main/resources/db/migration`. See [docs/architecture.md](docs/architecture.md)
 for the module layout, conventions and tooling. The web client structure, dependency rules and
 API sync flow are in [docs/frontend-architecture.md](docs/frontend-architecture.md).
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
+
+- **Backend:** `./mvnw -B spotless:check verify` on JDK 25 (Testcontainers uses the runner's Docker).
+- **Frontend:** `pnpm install --frozen-lockfile`, then `lint`, `format:check`, `test --run` and `build` on Node 24.
