@@ -40,6 +40,14 @@ class AdministrationGuardTest {
     }
 
     @Test
+    void ignoresUnknownRoleIdsWhenAnotherAdministratorRemains() {
+        User withUnknownRole = User.register(new Email("x@b.pe"), "X", new PasswordHash("h"));
+        withUnknownRole.assignRole(Role.sales().id());
+        assertThatCode(() -> verify(List.of(withUnknownRole, first), admin))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     void rejectsDeactivatingLastAdministrator() {
         first.deactivate();
         assertRejected(List.of(first), admin);
