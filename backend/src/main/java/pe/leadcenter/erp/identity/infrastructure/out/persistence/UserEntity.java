@@ -17,6 +17,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
 import pe.leadcenter.erp.shared.infrastructure.persistence.AuditedEntity;
 
 /** Users are deactivated ({@code active = false}), never deleted, so no soft delete either. */
@@ -38,6 +39,7 @@ class UserEntity extends AuditedEntity {
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
+    @NotAudited
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 

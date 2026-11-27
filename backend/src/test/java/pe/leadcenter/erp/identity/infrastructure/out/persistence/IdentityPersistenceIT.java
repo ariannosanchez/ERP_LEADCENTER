@@ -264,4 +264,148 @@ class IdentityPersistenceIT {
                                 "select count(*) from roles where id = ?", Integer.class, id))
                 .isZero();
     }
+
+    @Test
+    void passwordHashesAreNotKeptInHistory() {
+        User user = users.save(newUser("hist." + unique() + "@example.com"));
+        user.changePasswordHash(new PasswordHash("$2a$10$changed"));
+        users.save(user);
+
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from information_schema.columns"
+                                        + " where table_name = 'users_aud'"
+                                        + " and column_name = 'password_hash'",
+                                Integer.class))
+                .isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "select password_hash from users where id = ?",
+                                String.class,
+                                user.id()))
+                .isEqualTo("$2a$10$changed");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from users_aud where id = ?",
+                                Integer.class,
+                                user.id()))
+                .isEqualTo(2);
+    }
+
+    @Test
+    void databaseRejectsCodesOutsideTheCatalog() {
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        "insert into role_permissions values (?, 'leads.borrar')",
+                                        Role.SALES_ID))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("role_permissions_code_check");
+    }
+
+    @Test
+    void storedAdministratorMissingAPermissionFailsLoudlyOnLoad() {
+        tx.executeWithoutResult(
+                status -> {
+                    jdbc.update(
+                            "delete from role_permissions where role_id = ?"
+                                    + " and permission_code = 'roles.gestionar'",
+                            Role.ADMINISTRATOR_ID);
+
+                    assertThatThrownBy(() -> roles.findById(Role.ADMINISTRATOR_ID))
+                            .isInstanceOf(BusinessRuleViolationException.class)
+                            .extracting("code")
+                            .isEqualTo("role.system_protected");
+                    status.setRollbackOnly();
+                });
+
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from role_permissions where role_id = ?",
+                                Integer.class,
+                                Role.ADMINISTRATOR_ID))
+                .isEqualTo(Permission.values().length);
+    }
+
+    @Test
+    void userRoleChangesCreateHistoryWithTheAuthenticatedUser() {
+        UUID actor = UUID.randomUUID();
+        AuthenticatedUser principal = () -> actor;
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken(principal, "n/a", "ROLE_X"));
+        User user = newUser("roles." + unique() + "@example.com");
+        user.assignRole(Role.SALES_ID);
+        users.save(user);
+        user.removeRole(Role.SALES_ID);
+        user.assignRole(Role.ADMINISTRATOR_ID);
+        users.save(user);
+
+        List<String> rows =
+                jdbc.query(
+                        "select revtype, role_id from user_roles_aud where user_id = ?"
+                                + " order by rev, revtype, role_id",
+                        (rs, i) -> rs.getInt("revtype") + ":" + rs.getObject("role_id", UUID.class),
+                        user.id());
+        assertThat(rows)
+                .containsExactly(
+                        "0:" + Role.SALES_ID, "0:" + Role.ADMINISTRATOR_ID, "2:" + Role.SALES_ID);
+        assertThat(
+                        jdbc.queryForList(
+                                "select distinct r.modified_by from user_roles_aud a"
+                                        + " join revinfo r on r.rev = a.rev where a.user_id = ?",
+                                UUID.class,
+                                user.id()))
+                .containsExactly(actor);
+    }
+
+    @Test
+    void historyTablesReferenceRevinfo() {
+        for (String table :
+                List.of("roles_aud", "role_permissions_aud", "users_aud", "user_roles_aud")) {
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select count(*) from information_schema.table_constraints tc"
+                                            + " join information_schema.constraint_column_usage cu"
+                                            + " on cu.constraint_name = tc.constraint_name"
+                                            + " where tc.table_name = ?"
+                                            + " and tc.constraint_type = 'FOREIGN KEY'"
+                                            + " and cu.table_name = 'revinfo'",
+                                    Integer.class,
+                                    table))
+                    .as(table)
+                    .isEqualTo(1);
+        }
+    }
+
+    @Test
+    void seedHasExactlyTwoRolesAndTenPermissionRows() {
+        assertThat(
+                        jdbc.queryForList(
+                                "select permission_code from role_permissions where role_id = ?",
+                                String.class,
+                                Role.SALES_ID))
+                .containsExactlyInAnyOrder("leads.gestionar", "leads.ver_propios");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from role_permissions where role_id = ?",
+                                Integer.class,
+                                Role.ADMINISTRATOR_ID))
+                .isEqualTo(Permission.values().length);
+        assertThat(jdbc.queryForList("select id from roles where system = true", UUID.class))
+                .containsExactly(Role.ADMINISTRATOR_ID);
+    }
+
+    @Test
+    void emailNormalizationCheckRejectsSurroundingSpaces() {
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        "insert into users (id, email, full_name, password_hash,"
+                                                + " created_at, updated_at)"
+                                                + " values (?, ?, 'x', 'x', now(), now())",
+                                        UUID.randomUUID(),
+                                        " sp." + unique() + "@example.com"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("users_email_normalized_check");
+    }
 }

@@ -95,6 +95,17 @@ class LeadEntity extends SoftDeletableAuditedEntity {
 }
 ```
 
+## Identity module
+
+- Users are never deleted, only deactivated. Custom roles may be hard-deleted only when no user holds
+  them (`user_roles.role_id` has an FK without cascade, which enforces it); the system
+  **Administrador** role is never deleted.
+- Password hashes are excluded from history (`@NotAudited`; `users_aud` has no `password_hash` column).
+- **Adding a `Permission` value** requires a Flyway migration that updates the
+  `role_permissions_code_check` constraint and grants the new code to the Administrador row
+  (`00000000-0000-7000-8000-000000000001`). Otherwise loading the Administrador fails with
+  `role.system_protected`, because a system role must hold every permission.
+
 ## Time
 
 Store and process in UTC (JVM default zone set in `ErpApiApplication`, `-Duser.timezone=UTC` in tests

@@ -48,6 +48,11 @@ public final class Role {
     /** Rebuilds a stored role: validates invariants, no creation side effects. */
     public static Role restore(
             UUID id, String name, String description, boolean system, Set<Permission> permissions) {
+        if (id != null && system != Role.ADMINISTRATOR_ID.equals(id)) {
+            throw new BusinessRuleViolationException(
+                    "role.system_flag_invalid",
+                    "Only the Administrador role may (and must) be flagged as system");
+        }
         Role role = new Role(id, name, description, system, permissions);
         if (system && !role.permissions.containsAll(EnumSet.allOf(Permission.class))) {
             throw protectedRole("A system role must hold every permission");

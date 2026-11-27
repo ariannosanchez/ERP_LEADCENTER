@@ -1,5 +1,8 @@
 -- Identity module: roles, role permissions, users, user roles (+ Envers history tables).
--- Users and roles are never physically or logically deleted: users are deactivated (active = false).
+-- Users are never deleted: they are deactivated (active = false).
+-- Custom roles may be hard-deleted only when no user holds them (user_roles.role_id has no cascade, so the
+-- FK rejects it); the system Administrador role is never deleted.
+-- Password hashes are NOT audited: users_aud deliberately has no password_hash column.
 
 CREATE TABLE roles (
 	id          UUID                     NOT NULL PRIMARY KEY,
@@ -74,7 +77,6 @@ CREATE TABLE users_aud (
 	revtype       SMALLINT,
 	email         VARCHAR(254),
 	full_name     VARCHAR(150),
-	password_hash VARCHAR(255),
 	active        BOOLEAN,
 	version       BIGINT,
 	created_at    TIMESTAMP WITH TIME ZONE,

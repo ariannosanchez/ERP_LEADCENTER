@@ -20,8 +20,9 @@ import org.hibernate.envers.Audited;
 import pe.leadcenter.erp.shared.infrastructure.persistence.AuditedEntity;
 
 /**
- * Roles are audited with history but never deleted (no soft delete): the table has no {@code
- * deleted_at}, so the case-insensitive unique name always refers to a live role.
+ * Roles are audited with history and have no soft delete (no {@code deleted_at}). A custom role may
+ * be hard-deleted only when no user holds it ({@code user_roles} has an FK without cascade); the
+ * system Administrador role is never deleted.
  */
 @Entity
 @Table(name = "roles")
